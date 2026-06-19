@@ -1,0 +1,6 @@
+-- Seed data for local development (`supabase db reset` runs this after migrations).
+--
+-- NOTE: real rows are provisioned automatically by the handle_new_user()
+-- trigger when a user signs up, so there is nothing required to seed for
+-- the multi-tenant model to work. Add demo fixtures below if useful, e.g.
+-- a library_items preset for a known org id. Left intentionally empty.
