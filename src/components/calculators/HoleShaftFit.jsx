@@ -2,6 +2,14 @@
 
 import React, { useState, useMemo } from "react";
 import { Printer, AlertTriangle } from "lucide-react";
+import {
+  fitAtTemperature,
+  cteToAlphaPerK,
+  MATERIALS,
+  CRYO_LIMIT_C,
+  SOFT_MIN_C,
+  SOFT_MAX_C,
+} from "@/lib/thermalFit";
 
 const C = {
   ink: "#16181B", sub: "#5C6066", faint: "#8A8F96", line: "#E4E5E1", paper: "#F2F3F1",
@@ -60,6 +68,7 @@ const FITS = [
 ];
 const fitByCode = (c) => FITS.find((f) => f[2] === c);
 const GROUPS = [["clearance", "Clearance — slides with a gap"], ["transition", "Transition — light push"], ["interference", "Interference — press or shrink"]];
+const catTitle = (c) => (c === "clearance" ? "Clearance" : c === "interference" ? "Interference" : "Transition");
 
 export default function HoleShaftFit() {
   const [D, setD] = useState("25");
@@ -69,8 +78,18 @@ export default function HoleShaftFit() {
   const [hES, setHES] = useState("21"), [hEI, setHEI] = useState("0");
   const [sES, setSES] = useState("-7"), [sEI, setSEI] = useState("-20");
   const [fit, setFit] = useState("H7/g6");
+  // Thermal fit-at-temperature
+  const [temp, setTemp] = useState("20");
+  const [holeMatId, setHoleMatId] = useState("steel-mild"), [shaftMatId, setShaftMatId] = useState("steel-mild");
+  const [holeCte, setHoleCte] = useState("11.7"), [shaftCte, setShaftCte] = useState("11.7");
+  const [advanced, setAdvanced] = useState(false);
+  const [holeTemp, setHoleTemp] = useState("20"), [shaftTemp, setShaftTemp] = useState("20");
+
   const applyFit = (code) => { const f = fitByCode(code); if (!f) return; setFit(code); setHMan(false); setSMan(false); setHL(f[3]); setHG(f[4]); setSL(f[5]); setSG(f[6]); };
   const customize = () => setFit("custom");
+  const pickHoleMat = (id) => { setHoleMatId(id); const m = MATERIALS.find((x) => x.id === id); if (m) setHoleCte(String(m.cteUmPerMK)); };
+  const pickShaftMat = (id) => { setShaftMatId(id); const m = MATERIALS.find((x) => x.id === id); if (m) setShaftCte(String(m.cteUmPerMK)); };
+  const toggleAdvanced = () => setAdvanced((a) => { const na = !a; if (na) { setHoleTemp(temp); setShaftTemp(temp); } return na; });
 
   const r = useMemo(() => {
     const d = numOr(D, 1);
@@ -81,6 +100,23 @@ export default function HoleShaftFit() {
     return { d, hole: hd, shaft: sd, Cmax, Cmin, type, estimate: !hd.exact || !sd.exact,
       holeMax: d + hd.ES / 1000, holeMin: d + hd.EI / 1000, shaftMax: d + sd.es / 1000, shaftMin: d + sd.ei / 1000 };
   }, [D, hL, hG, sL, sG, hMan, sMan, hES, hEI, sES, sEI]);
+
+  const thermal = useMemo(() => {
+    const Th = advanced ? numOr(holeTemp, 20) : numOr(temp, 20);
+    const Ts = advanced ? numOr(shaftTemp, 20) : numOr(temp, 20);
+    const aH = cteToAlphaPerK(numOr(holeCte, 0));
+    const aS = cteToAlphaPerK(numOr(shaftCte, 0));
+    // Thermal effects exist only when a part is off the 20 °C reference; at 20 °C
+    // the expansion term is zero regardless of material, so the panel stays hidden.
+    const active = Th !== 20 || Ts !== 20;
+    const cryo = Math.min(Th, Ts) < CRYO_LIMIT_C;
+    const soft = !cryo && (Th < SOFT_MIN_C || Th > SOFT_MAX_C || Ts < SOFT_MIN_C || Ts > SOFT_MAX_C);
+    const fitT = fitAtTemperature({
+      holeMin20: r.holeMin, holeMax20: r.holeMax, shaftMin20: r.shaftMin, shaftMax20: r.shaftMax,
+      alphaHolePerK: aH, alphaShaftPerK: aS, holeTempC: Th, shaftTempC: Ts,
+    });
+    return { Th, Ts, active, cryo, soft, fitT, changed: active && !cryo && fitT.category !== r.type };
+  }, [r, holeCte, shaftCte, temp, holeTemp, shaftTemp, advanced]);
 
   const TY = {
     clearance: { c: C.clear, t: "Clearance fit", d: "The shaft is always smaller than the hole — it slides in with a gap." },
@@ -93,6 +129,16 @@ export default function HoleShaftFit() {
   const codeStr = !hMan && !sMan ? `Ø${r.d} ${hL}${hG}/${sL}${sG}` : fitMeta ? `Ø${r.d} ${fitMeta[2]}` : "";
   const summary = r.type === "clearance" ? `gap ${um(r.Cmin)} … ${um(r.Cmax)} µm`
     : r.type === "interference" ? `overlap ${um(-r.Cmin)} … ${um(-r.Cmax)} µm` : `${um(r.Cmax)} µm gap … ${um(-r.Cmin)} µm overlap`;
+
+  const tLabel = advanced ? (thermal.Th === thermal.Ts ? `${thermal.Th}` : `${thermal.Th}/${thermal.Ts}`) : `${numOr(temp, 20)}`;
+  const worst = thermal.fitT.clearanceMinUm < 0
+    ? `up to ${Math.round(-thermal.fitT.clearanceMinUm)} µm interference`
+    : `min gap ${Math.round(thermal.fitT.clearanceMinUm)} µm`;
+  const bannerText = `${catTitle(r.type)} → ${catTitle(thermal.fitT.category)} at ${tLabel} °C — ${worst}`;
+  // Shaft band translated relative to the (20 °C) hole band so the at-T clearance reads off the diagram.
+  const shaftT = thermal.active && !thermal.cryo
+    ? { es: r.hole.EI - thermal.fitT.clearanceMinUm, ei: r.hole.ES - thermal.fitT.clearanceMaxUm }
+    : null;
 
   return (
     <div style={{ background: C.paper, color: C.ink, fontFamily: SANS, minHeight: "100vh" }}>
@@ -118,6 +164,25 @@ export default function HoleShaftFit() {
           <div className="mono" style={{ fontSize: 10.5, color: C.faint, marginTop: 12, lineHeight: 1.6 }}>Deviations in µm. Clearance &amp; transition fits (d–h, k, n) verified exact; a/b/c and interference (p–u) are formula estimates — confirm vs ISO 286-2.</div>
         </Panel>
 
+        <Panel title="Temperature &amp; material" hint="thermal fit · 20 °C ref (ISO 1)">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 14 }}>
+            <Field label="Temperature (°C)"><input value={temp} onChange={(e) => setTemp(e.target.value)} inputMode="decimal" disabled={advanced} style={{ ...inp, width: "100%", opacity: advanced ? 0.5 : 1 }} /></Field>
+            <MatField label="Hole material" matId={holeMatId} onMat={pickHoleMat} cte={holeCte} onCte={setHoleCte} />
+            <MatField label="Shaft material" matId={shaftMatId} onMat={pickShaftMat} cte={shaftCte} onCte={setShaftCte} />
+          </div>
+          <button onClick={toggleAdvanced} className="no-print mono" style={{ marginTop: 12, fontSize: 11.5, color: C.sub, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+            {advanced ? "− Hide per-part temperatures" : "+ Advanced: per-part temperatures (shrink-fit / gradients)"}
+          </button>
+          {advanced && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 14, marginTop: 10 }}>
+              <Field label="Hole temperature (°C)"><input value={holeTemp} onChange={(e) => setHoleTemp(e.target.value)} inputMode="decimal" style={{ ...inp, width: "100%" }} /></Field>
+              <Field label="Shaft temperature (°C)"><input value={shaftTemp} onChange={(e) => setShaftTemp(e.target.value)} inputMode="decimal" style={{ ...inp, width: "100%" }} /></Field>
+            </div>
+          )}
+          {thermal.cryo && <WarnNote>Below −50 °C the linear mean-CTE model doesn&apos;t apply — cryogenic ranges need integrated thermal-contraction data. No fit-at-temperature is shown.</WarnNote>}
+          {thermal.soft && <WarnNote>Outside −50…+300 °C — mean-CTE linearity is approximate here; verify against your data.</WarnNote>}
+        </Panel>
+
         {/* ===== 2 RESULT ===== */}
         <Step n="2" label="Result" />
         <Panel>
@@ -138,12 +203,36 @@ export default function HoleShaftFit() {
           </div>
         </Panel>
 
+        {thermal.active && (
+          <Panel title="Fit at temperature" hint={`20 °C → ${tLabel} °C`}>
+            {thermal.changed && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.warnBg, border: `1px solid ${C.warn}66`, borderRadius: 8, padding: "10px 12px", marginBottom: 14, color: C.warn }}>
+                <AlertTriangle size={15} /><span style={{ fontSize: 13, fontWeight: 600 }}>{bannerText}</span>
+              </div>
+            )}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px,1fr))", gap: 14 }}>
+              <ResultBlock label="At 20 °C" cat={r.type} min={r.Cmin} max={r.Cmax} um={um} />
+              {thermal.cryo ? (
+                <div style={{ background: C.warnBg, border: `1px solid ${C.warn}44`, borderRadius: 10, padding: "12px 14px" }}>
+                  <div className="mono" style={{ fontSize: 10.5, color: C.faint, marginBottom: 6 }}>At {tLabel} °C</div>
+                  <div style={{ fontSize: 12.5, color: C.warn, display: "flex", gap: 6, alignItems: "flex-start", lineHeight: 1.5 }}><AlertTriangle size={13} /> Cryogenic — linear CTE model doesn&apos;t apply.</div>
+                </div>
+              ) : (
+                <ResultBlock label={`At ${tLabel} °C`} cat={thermal.fitT.category} min={thermal.fitT.clearanceMinUm} max={thermal.fitT.clearanceMaxUm} um={um} highlight />
+              )}
+            </div>
+            <div className="mono" style={{ fontSize: 10.5, color: C.faint, marginTop: 12, lineHeight: 1.6 }}>
+              Mean CTE assumed constant over 20→T; linear model for moderate temperatures only. Cryogenic ranges need integrated thermal-contraction data. Verify CTE against your source.
+            </div>
+          </Panel>
+        )}
+
         {/* ===== 3 ANALYSIS ===== */}
         <Step n="3" label="Analysis" />
         <Panel title="Tolerance zones" hint="how the bands sit on the size line">
-          <ZoneDiagram hole={r.hole} shaft={r.shaft} um={um} />
+          <ZoneDiagram hole={r.hole} shaft={r.shaft} shaftT={shaftT} um={um} />
           <div style={{ fontSize: 12, color: C.sub, marginTop: 8, lineHeight: 1.5 }}>
-            Each band is the allowed range for that part, measured from the basic size (the dashed line). Shaft band fully below the hole band → clearance; overlapping → transition; above → interference.
+            Each band is the allowed range for that part, measured from the basic size (the dashed line). Shaft band fully below the hole band → clearance; overlapping → transition; above → interference.{shaftT ? " The faded band is the shaft at 20 °C; the solid band is at temperature — the gap between them is the differential expansion." : ""}
           </div>
         </Panel>
       </div>
@@ -191,6 +280,38 @@ function ClassPanel({ title, color, bg, man, setMan, letter, setLetter, grade, s
   );
 }
 function Field({ label, children }) { return (<label style={{ display: "block" }}><div style={{ fontSize: 10.5, color: C.faint, marginBottom: 5 }}>{label}</div>{children}</label>); }
+function MatField({ label, matId, onMat, cte, onCte }) {
+  const mat = MATERIALS.find((m) => m.id === matId);
+  return (
+    <label style={{ display: "block" }}>
+      <div style={{ fontSize: 10.5, color: C.faint, marginBottom: 5 }}>{label}</div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <select value={matId} onChange={(e) => onMat(e.target.value)} style={{ ...sel, fontFamily: SANS, flex: 1, width: "auto" }}>
+          {MATERIALS.map((m) => <option key={m.id} value={m.id}>{m.name} · {m.cteUmPerMK}</option>)}
+          <option value="custom">Custom…</option>
+        </select>
+        <input value={cte} onChange={(e) => onCte(e.target.value)} inputMode="decimal" title="CTE in µm/m·K" style={{ ...inp, width: 58 }} />
+      </div>
+      <div className="mono" style={{ fontSize: 9.5, color: C.faint, marginTop: 4 }}>{matId === "custom" ? "custom CTE · µm/m·K" : `${mat ? mat.source : ""} · µm/m·K`}</div>
+    </label>
+  );
+}
+function WarnNote({ children }) {
+  return (<div className="mono" style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 11.5, color: C.warn, background: C.warnBg, border: `1px solid ${C.warn}44`, borderRadius: 7, padding: "8px 11px", marginTop: 12, lineHeight: 1.55 }}><AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} /><span>{children}</span></div>);
+}
+function ResultBlock({ label, cat, min, max, um, highlight }) {
+  const info = { clearance: { c: C.clear, t: "Clearance fit" }, interference: { c: C.inter, t: "Interference fit" }, transition: { c: C.trans, t: "Transition fit" } }[cat];
+  const summary = cat === "clearance" ? `gap ${um(min)} … ${um(max)} µm`
+    : cat === "interference" ? `overlap ${um(-min)} … ${um(-max)} µm`
+    : `${um(max)} µm gap … ${um(-min)} µm overlap`;
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${highlight ? info.c + "66" : C.line}`, borderRadius: 10, padding: "12px 14px" }}>
+      <div className="mono" style={{ fontSize: 10.5, color: C.faint, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 16, fontWeight: 650, color: info.c }}>{info.t}</div>
+      <div className="mono" style={{ fontSize: 13, color: C.ink, marginTop: 3 }}>{summary}</div>
+    </div>
+  );
+}
 function Lim({ color, name, max, min, mm3 }) {
   return (<div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: color }} /><span style={{ fontSize: 13, color: C.ink, width: 44 }}>{name}</span><span className="mono" style={{ fontSize: 13, color: C.sub }}>{mm3(min)} … {mm3(max)} <span style={{ color: C.faint }}>mm</span></span></div>);
 }
@@ -206,22 +327,24 @@ function Pictogram({ type, color }) {
     </svg>
   );
 }
-function ZoneDiagram({ hole, shaft, um }) {
+function ZoneDiagram({ hole, shaft, shaftT, um }) {
   const W = 460, H = 196, padL = 8, zx1 = 96, zw = 120, gap = 36;
   const vals = [hole.ES, hole.EI, shaft.es, shaft.ei, 0];
+  if (shaftT) { vals.push(shaftT.es, shaftT.ei); }
   let vmax = Math.max(...vals), vmin = Math.min(...vals);
   const pad = Math.max(5, (vmax - vmin) * 0.25); vmax += pad; vmin -= pad;
   const Y = (v) => 24 + (1 - (v - vmin) / (vmax - vmin)) * (H - 48);
   const y0 = Y(0), step = niceStep((vmax - vmin) / 5), ticks = [];
   for (let t = Math.ceil(vmin / step) * step; t <= vmax; t += step) ticks.push(Math.round(t));
-  const Zone = (x, top, bot, col, bg, label) => (
-    <g>
-      <rect x={x} y={Y(top)} width={zw} height={Math.max(2, Y(bot) - Y(top))} fill={bg} stroke={col} strokeWidth="1.6" rx="2" />
+  const Zone = (x, top, bot, col, bg, label, opacity = 1, dash) => (
+    <g opacity={opacity}>
+      <rect x={x} y={Y(top)} width={zw} height={Math.max(2, Y(bot) - Y(top))} fill={bg} stroke={col} strokeWidth="1.6" rx="2" strokeDasharray={dash} />
       <text x={x + zw / 2} y={Y(top) - 7} textAnchor="middle" fontSize="11" fill={col} fontWeight="600">{label}</text>
       <text x={x + zw + 6} y={Y(top) + 4} fontSize="10" fontFamily={MONO} fill={C.sub}>{um(top)}</text>
       <text x={x + zw + 6} y={Y(bot) + 4} fontSize="10" fontFamily={MONO} fill={C.sub}>{um(bot)}</text>
     </g>
   );
+  const sx = zx1 + zw + gap;
   return (
     <div style={{ overflowX: "auto" }}>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 420, display: "block" }} fontFamily={SANS}>
@@ -229,7 +352,14 @@ function ZoneDiagram({ hole, shaft, um }) {
         <line x1={zx1 - 6} y1={y0} x2={W - 10} y2={y0} stroke={C.faint} strokeDasharray="4 3" strokeWidth="1.2" />
         <text x={padL} y={y0 - 4} fontSize="9" fontFamily={MONO} fill={C.ink}>0</text>
         {Zone(zx1, hole.ES, hole.EI, C.hole, C.holeBg, "Hole")}
-        {Zone(zx1 + zw + gap, shaft.es, shaft.ei, C.shaft, C.shaftBg, "Shaft")}
+        {shaftT ? (
+          <>
+            {Zone(sx, shaft.es, shaft.ei, C.shaft, C.shaftBg, "20 °C", 0.32, "4 3")}
+            {Zone(sx, shaftT.es, shaftT.ei, C.shaft, C.shaftBg, "at T", 1)}
+          </>
+        ) : (
+          Zone(sx, shaft.es, shaft.ei, C.shaft, C.shaftBg, "Shaft")
+        )}
       </svg>
     </div>
   );
