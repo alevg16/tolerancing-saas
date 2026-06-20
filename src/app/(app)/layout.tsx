@@ -1,4 +1,4 @@
-import { getUser, getCurrentOrg } from "@/lib/auth/dal";
+import { getUser, getCurrentOrg, getMyOrgs } from "@/lib/auth/dal";
 import AppShell from "@/components/app/AppShell";
 
 export default async function AppGroupLayout({
@@ -7,13 +7,18 @@ export default async function AppGroupLayout({
   children: React.ReactNode;
 }) {
   // getCurrentOrg() calls requireUser() → redirects to /login if signed out.
-  const [user, { organization }] = await Promise.all([
+  const [user, { organization }, orgs] = await Promise.all([
     getUser(),
     getCurrentOrg(),
+    getMyOrgs(),
   ]);
 
   return (
-    <AppShell orgName={organization.name} userEmail={user?.email ?? ""}>
+    <AppShell
+      orgs={orgs.map((o) => ({ id: o.id, name: o.name }))}
+      currentOrgId={organization.id}
+      userEmail={user?.email ?? ""}
+    >
       {children}
     </AppShell>
   );

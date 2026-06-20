@@ -118,6 +118,20 @@ export default async function DashboardPage() {
                 >
                   Open
                 </Link>
+                <Link
+                  href={`/report/${p.id}`}
+                  className="mono"
+                  style={{
+                    fontSize: 12,
+                    color: C.sub,
+                    textDecoration: "none",
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    border: `1px solid ${C.line}`,
+                  }}
+                >
+                  Export
+                </Link>
                 <form action={deleteProjectAction.bind(null, p.id)}>
                   <button
                     type="submit"

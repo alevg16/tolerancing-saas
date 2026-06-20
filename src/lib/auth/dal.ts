@@ -1,9 +1,10 @@
 import "server-only";
 
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Membership, Organization } from "@/lib/types";
+import type { Membership, Organization, Role } from "@/lib/types";
 
 /**
  * Data Access Layer — the single place that resolves "who is this request".
@@ -43,19 +44,53 @@ export const getCurrentOrg = cache(async (): Promise<CurrentOrg> => {
     .from("memberships")
     .select("*, organization:organizations(*)")
     .eq("user_id", user.id)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: true });
 
   if (error) throw error;
-  if (!data || !data.organization) {
+  const rows = (data ?? []) as (Membership & { organization: Organization })[];
+  if (rows.length === 0) {
     // The signup trigger provisions this; if it's missing the account is
     // half-created. Send them back through auth rather than crashing.
     redirect("/login");
   }
 
-  const { organization, ...membership } = data as Membership & {
-    organization: Organization;
-  };
+  // Honour the active-workspace cookie; otherwise the earliest membership.
+  const activeId = (await cookies()).get("active_org")?.value;
+  const chosen = rows.find((r) => r.organization_id === activeId) ?? rows[0];
+
+  const { organization, ...membership } = chosen;
   return { organization, membership };
+});
+
+export interface OrgSummary {
+  id: string;
+  name: string;
+  role: Role;
+}
+
+/** Every org the signed-in user belongs to — for the workspace switcher. */
+export const getMyOrgs = cache(async (): Promise<OrgSummary[]> => {
+  const user = await requireUser();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("role, organization:organizations(id, name)")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+
+  type Row = {
+    role: Role;
+    organization:
+      | { id: string; name: string }
+      | { id: string; name: string }[]
+      | null;
+  };
+  return ((data ?? []) as unknown as Row[])
+    .map((r) => {
+      const o = Array.isArray(r.organization) ? r.organization[0] : r.organization;
+      return { id: o?.id ?? "", name: o?.name ?? "Workspace", role: r.role };
+    })
+    .filter((o) => o.id);
 });

@@ -6,13 +6,13 @@ export const metadata: Metadata = { title: "Sign in · Tolerancing" };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; redirectTo?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, redirectTo } = await searchParams;
   const initialError =
     error === "auth_callback"
       ? "We couldn't confirm that link. Try signing in."
       : undefined;
 
-  return <LoginForm initialError={initialError} />;
+  return <LoginForm initialError={initialError} redirectTo={redirectTo} />;
 }

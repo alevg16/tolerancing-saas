@@ -8,7 +8,13 @@ import { C, MONO, SANS } from "@/lib/design/tokens";
 
 const empty: AuthState = {};
 
-export default function LoginForm({ initialError }: { initialError?: string }) {
+export default function LoginForm({
+  initialError,
+  redirectTo,
+}: {
+  initialError?: string;
+  redirectTo?: string;
+}) {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [inState, inAction, inPending] = useActionState(signIn, empty);
   const [upState, upAction, upPending] = useActionState(signUp, empty);
@@ -85,6 +91,7 @@ export default function LoginForm({ initialError }: { initialError?: string }) {
 
         {/* key forces fresh inputs when switching modes */}
         <form action={action} key={mode}>
+          <input type="hidden" name="redirectTo" value={redirectTo ?? ""} />
           {isSignup && (
             <Field label="Name">
               <input name="name" autoComplete="name" style={input} />

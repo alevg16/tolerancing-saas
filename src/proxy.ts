@@ -12,6 +12,6 @@ export const config = {
      * Run on all paths except static assets and image files, so the Supabase
      * session cookie is refreshed across the app.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

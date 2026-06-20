@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser, getCurrentOrg } from "@/lib/auth/dal";
+import { getCurrentPlan } from "@/lib/auth/plan";
 import {
   createProject,
   updateProject,
@@ -19,6 +20,12 @@ export async function createProjectAction(moduleType: ModuleType) {
   const mod = getModuleByType(moduleType);
   if (!mod || !mod.saveable) {
     throw new Error("This module can't be saved as a project yet.");
+  }
+
+  // Saving is a Pro feature — gate server-side from the synced plan.
+  if (mod.tier === "pro") {
+    const { isPro } = await getCurrentPlan();
+    if (!isPro) redirect("/billing");
   }
 
   const project = await createProject({

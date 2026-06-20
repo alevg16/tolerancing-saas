@@ -2,7 +2,15 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /** Paths that require an authenticated user. */
-const PROTECTED_PREFIXES = ["/dashboard", "/projects", "/tools"];
+const PROTECTED_PREFIXES = [
+  "/dashboard",
+  "/projects",
+  "/tools",
+  "/team",
+  "/invite",
+  "/billing",
+  "/report",
+];
 
 function isProtected(pathname: string) {
   return PROTECTED_PREFIXES.some(

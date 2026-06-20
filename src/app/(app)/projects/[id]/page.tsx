@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
 import { getProject } from "@/lib/data/projects";
 import { getModuleByType } from "@/lib/modules";
+import { getCurrentOrg } from "@/lib/auth/dal";
+import { getCurrentPlan } from "@/lib/auth/plan";
 import ProjectWorkspace from "@/components/projects/ProjectWorkspace";
+import UpgradeWall from "@/components/billing/UpgradeWall";
 
 export default async function ProjectPage({
   params,
@@ -14,6 +17,18 @@ export default async function ProjectPage({
 
   const mod = getModuleByType(project.module_type);
   if (!mod) notFound();
+
+  if (mod.tier === "pro") {
+    const [{ isPro }, { membership }] = await Promise.all([
+      getCurrentPlan(),
+      getCurrentOrg(),
+    ]);
+    if (!isPro) {
+      const canManage =
+        membership.role === "owner" || membership.role === "admin";
+      return <UpgradeWall moduleLabel={mod.label} canManage={canManage} />;
+    }
+  }
 
   return <ProjectWorkspace project={project} moduleLabel={mod.label} />;
 }

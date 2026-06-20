@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { CALCULATORS } from "@/components/calculators";
 import { useHydrated } from "@/lib/use-hydrated";
 import { updateProjectAction } from "@/app/(app)/projects/actions";
@@ -117,6 +118,20 @@ export default function ProjectWorkspace({
         >
           {status.text}
         </span>
+        <Link
+          href={`/report/${project.id}`}
+          className="mono"
+          style={{
+            fontSize: 12.5,
+            color: C.sub,
+            textDecoration: "none",
+            border: `1px solid ${C.line}`,
+            borderRadius: 8,
+            padding: "8px 12px",
+          }}
+        >
+          Export PDF
+        </Link>
         <button
           onClick={save}
           disabled={pending}

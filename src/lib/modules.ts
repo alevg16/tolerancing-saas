@@ -29,6 +29,16 @@ export const MODULES: ModuleDef[] = [
     saveable: true,
   },
   {
+    slug: "tolerance-allocation",
+    type: "tolerance_allocation",
+    label: "Tolerance Allocation",
+    standard: "Budget · worst-case / RSS",
+    blurb:
+      "The inverse of a stack: given a target fit and yield, budget the tightest tolerance each dimension actually needs — weighted by how hard it is to hold.",
+    tier: "pro",
+    saveable: true,
+  },
+  {
     slug: "hole-shaft-fit",
     type: "hole_shaft_fit",
     label: "Hole / Shaft Fit",
@@ -45,7 +55,7 @@ export const MODULES: ModuleDef[] = [
     standard: "ISO 965",
     blurb:
       "Metric thread tolerance classes for bolt and nut, pitch-diameter clearance and tolerance zones.",
-    tier: "pro",
+    tier: "free",
     saveable: false,
   },
   {
@@ -55,7 +65,7 @@ export const MODULES: ModuleDef[] = [
     standard: "VDI 2230",
     blurb:
       "Tightening torque from target preload, friction breakdown, preload-vs-proof check and thread-engagement guidance.",
-    tier: "pro",
+    tier: "free",
     saveable: false,
   },
 ];

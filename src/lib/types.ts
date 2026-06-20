@@ -9,7 +9,8 @@ export type ModuleType =
   | "hole_shaft_fit"
   | "thread_fit"
   | "bolt_torque"
-  | "linear_stack";
+  | "linear_stack"
+  | "tolerance_allocation";
 
 export interface Organization {
   id: string;

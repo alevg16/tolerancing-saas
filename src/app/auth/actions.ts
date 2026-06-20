@@ -11,6 +11,12 @@ function readCredentials(formData: FormData) {
   return { email, password };
 }
 
+/** Only allow same-site relative redirects (e.g. an invite link), else dashboard. */
+function safeRedirect(formData: FormData): string {
+  const to = String(formData.get("redirectTo") ?? "");
+  return to.startsWith("/") && !to.startsWith("//") ? to : "/dashboard";
+}
+
 export async function signIn(
   _prev: AuthState,
   formData: FormData,
@@ -25,7 +31,7 @@ export async function signIn(
   if (error) return { error: error.message };
 
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect(safeRedirect(formData));
 }
 
 export async function signUp(
@@ -62,7 +68,7 @@ export async function signUp(
   }
 
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect(safeRedirect(formData));
 }
 
 export async function signOut() {

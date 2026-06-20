@@ -1,14 +1,17 @@
 import Link from "next/link";
 import NavLinks from "./NavLinks";
 import SignOutButton from "./SignOutButton";
+import OrgSwitcher from "./OrgSwitcher";
 import { C, SANS } from "@/lib/design/tokens";
 
 export default function AppShell({
-  orgName,
+  orgs,
+  currentOrgId,
   userEmail,
   children,
 }: {
-  orgName: string;
+  orgs: { id: string; name: string }[];
+  currentOrgId: string;
   userEmail: string;
   children: React.ReactNode;
 }) {
@@ -42,21 +45,23 @@ export default function AppShell({
         </Link>
         <NavLinks />
         <span style={{ flex: 1 }} />
-        <div
-          className="mono"
-          style={{
-            fontSize: 11,
-            color: C.faint,
-            textAlign: "right",
-            lineHeight: 1.4,
-            maxWidth: 220,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {orgName}
-          {userEmail ? ` · ${userEmail}` : ""}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <OrgSwitcher orgs={orgs} currentId={currentOrgId} />
+          {userEmail && (
+            <span
+              className="mono"
+              style={{
+                fontSize: 11,
+                color: C.faint,
+                maxWidth: 180,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {userEmail}
+            </span>
+          )}
         </div>
         <SignOutButton />
       </header>
