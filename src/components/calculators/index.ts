@@ -5,6 +5,7 @@ import ThreadFit from "./ThreadFit";
 import BoltTorque from "./BoltTorque";
 import LinearStack from "./LinearStack";
 import ToleranceAllocation from "./ToleranceAllocation";
+import PressFit from "./PressFit";
 
 /** Props a saveable module accepts. Tools that don't persist simply ignore them. */
 export interface CalculatorProps {
@@ -18,4 +19,5 @@ export const CALCULATORS: Record<ModuleType, ComponentType<CalculatorProps>> = {
   bolt_torque: BoltTorque,
   linear_stack: LinearStack,
   tolerance_allocation: ToleranceAllocation,
+  press_fit: PressFit,
 };

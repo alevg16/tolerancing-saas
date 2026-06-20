@@ -39,6 +39,16 @@ export const MODULES: ModuleDef[] = [
     saveable: true,
   },
   {
+    slug: "press-fit",
+    type: "press_fit",
+    label: "Press / Shrink Fit",
+    standard: "Lamé thick-wall",
+    blurb:
+      "Interference fit by the Lamé equations: contact pressure and hub/shaft stress over the interference range, yield safety factor, grip force/torque and shrink-fit assembly temperatures.",
+    tier: "pro",
+    saveable: true,
+  },
+  {
     slug: "hole-shaft-fit",
     type: "hole_shaft_fit",
     label: "Hole / Shaft Fit",

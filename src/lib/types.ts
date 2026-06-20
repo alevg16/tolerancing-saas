@@ -10,7 +10,8 @@ export type ModuleType =
   | "thread_fit"
   | "bolt_torque"
   | "linear_stack"
-  | "tolerance_allocation";
+  | "tolerance_allocation"
+  | "press_fit";
 
 export interface Organization {
   id: string;
