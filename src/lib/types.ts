@@ -11,7 +11,8 @@ export type ModuleType =
   | "bolt_torque"
   | "linear_stack"
   | "tolerance_allocation"
-  | "press_fit";
+  | "press_fit"
+  | "true_position";
 
 export interface Organization {
   id: string;

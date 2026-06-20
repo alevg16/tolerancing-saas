@@ -49,6 +49,16 @@ export const MODULES: ModuleDef[] = [
     saveable: true,
   },
   {
+    slug: "true-position",
+    type: "true_position",
+    label: "True Position",
+    standard: "GD&T · ASME Y14.5",
+    blurb:
+      "Verify a feature against its position tolerance with MMC/LMC bonus, plot the zone and the measured point, and size the tolerance from a pin-in-hole (floating/fixed fastener) fit.",
+    tier: "pro",
+    saveable: true,
+  },
+  {
     slug: "hole-shaft-fit",
     type: "hole_shaft_fit",
     label: "Hole / Shaft Fit",
