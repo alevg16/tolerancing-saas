@@ -10,6 +10,7 @@ const PROTECTED_PREFIXES = [
   "/invite",
   "/billing",
   "/report",
+  "/account",
 ];
 
 function isProtected(pathname: string) {

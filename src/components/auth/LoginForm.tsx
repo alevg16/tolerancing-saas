@@ -117,6 +117,18 @@ export default function LoginForm({
             />
           </Field>
 
+          {!isSignup && (
+            <div style={{ textAlign: "right", marginTop: -4, marginBottom: 12 }}>
+              <Link
+                href="/forgot-password"
+                className="mono"
+                style={{ fontSize: 11.5, color: C.sub, textDecoration: "none" }}
+              >
+                Forgot password?
+              </Link>
+            </div>
+          )}
+
           {error && (
             <p
               className="mono"

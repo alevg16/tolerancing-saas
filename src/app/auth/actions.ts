@@ -77,3 +77,45 @@ export async function signOut() {
   revalidatePath("/", "layout");
   redirect("/login");
 }
+
+/** Email a password-reset link. Always reports success (no email enumeration). */
+export async function requestPasswordReset(
+  _prev: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) return { error: "Enter your email." };
+
+  const supabase = await createClient();
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${site}/auth/callback?next=/account/update-password`,
+  });
+
+  return {
+    message:
+      "If that email has an account, a reset link is on its way — check your inbox.",
+  };
+}
+
+/** Set a new password (runs under the recovery session from the email link). */
+export async function updatePasswordAction(
+  _prev: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+  if (password.length < 8) {
+    return { error: "Password must be at least 8 characters." };
+  }
+  if (password !== confirm) {
+    return { error: "Passwords don't match." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { error: error.message };
+
+  revalidatePath("/", "layout");
+  redirect("/dashboard");
+}
