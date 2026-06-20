@@ -14,7 +14,9 @@ export type ModuleType =
   | "press_fit"
   | "true_position"
   | "thermal_stack"
-  | "gear";
+  | "gear"
+  | "gdt"
+  | "gdt_stack";
 
 export interface Organization {
   id: string;

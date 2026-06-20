@@ -9,6 +9,8 @@ import PressFit from "./PressFit";
 import TruePosition from "./TruePosition";
 import ThermalStack from "./ThermalStack";
 import GearCalculator from "./GearCalculator";
+import GdtAnalyzer from "./GdtAnalyzer";
+import GdtStack from "./GdtStack";
 
 /** Props a saveable module accepts. Tools that don't persist simply ignore them. */
 export interface CalculatorProps {
@@ -26,4 +28,6 @@ export const CALCULATORS: Record<ModuleType, ComponentType<CalculatorProps>> = {
   true_position: TruePosition,
   thermal_stack: ThermalStack,
   gear: GearCalculator,
+  gdt: GdtAnalyzer,
+  gdt_stack: GdtStack,
 };

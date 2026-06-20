@@ -54,10 +54,12 @@ export default function GearCalculator({ initialState, onStateChange } = {}) {
   const [ka, setKa] = useState(init?.ka ?? "1.25");
   const [mat1, setMat1] = useState(init?.mat1 ?? "steel-case-60");
   const [mat2, setMat2] = useState(init?.mat2 ?? "steel-case-60");
+  const [c1, setC1] = useState(init?.c1 ?? { name: "Custom", E: "206", nu: "0.30", sHlim: "1000", sFlim: "350", hardness: "—" });
+  const [c2, setC2] = useState(init?.c2 ?? { name: "Custom", E: "206", nu: "0.30", sHlim: "1000", sFlim: "350", hardness: "—" });
 
   useEffect(() => {
-    onStateChange?.({ type, mn, z1, z2, alpha, helix, face, x1, x2, shaft, q, mu, loadMode, power, speed, torque, ka, mat1, mat2 });
-  }, [type, mn, z1, z2, alpha, helix, face, x1, x2, shaft, q, mu, loadMode, power, speed, torque, ka, mat1, mat2, onStateChange]);
+    onStateChange?.({ type, mn, z1, z2, alpha, helix, face, x1, x2, shaft, q, mu, loadMode, power, speed, torque, ka, mat1, mat2, c1, c2 });
+  }, [type, mn, z1, z2, alpha, helix, face, x1, x2, shaft, q, mu, loadMode, power, speed, torque, ka, mat1, mat2, c1, c2, onStateChange]);
 
   const fam = familyOf(type);
   const showHelix = type === "helical" || type === "herringbone" || type === "spiral_bevel";
@@ -70,8 +72,9 @@ export default function GearCalculator({ initialState, onStateChange } = {}) {
   const z1Label = isWorm ? "Worm starts" : "Pinion teeth";
   const z2Label = type === "internal" ? "Ring teeth" : isWorm ? "Wheel teeth" : "Gear teeth";
 
-  const m1 = gearMaterialById(mat1) ?? GEAR_MATERIALS[0];
-  const m2 = gearMaterialById(mat2) ?? GEAR_MATERIALS[0];
+  const customMat = (c) => ({ id: "custom", name: c.name || "Custom", kind: "custom", hardness: c.hardness || "—", sHlim: numOr(c.sHlim), sFlim: numOr(c.sFlim), E: numOr(c.E, 206), nu: numOr(c.nu, 0.3), source: "user-defined" });
+  const m1 = mat1 === "custom" ? customMat(c1) : (gearMaterialById(mat1) ?? GEAR_MATERIALS[0]);
+  const m2 = mat2 === "custom" ? customMat(c2) : (gearMaterialById(mat2) ?? GEAR_MATERIALS[0]);
 
   const r = useMemo(() => analyzeGear({
     type, module: numOr(mn, 1), z1: numOr(z1, 1), z2: numOr(z2, 1), pressureAngle: numOr(alpha, 20),
@@ -110,7 +113,13 @@ export default function GearCalculator({ initialState, onStateChange } = {}) {
               </div>
             </div>
           ))}
-          <div className="mono" style={{ fontSize: 10.5, color: C.sub, marginTop: 6, lineHeight: 1.5 }}>{GEAR_TYPES.find((g) => g.id === type)?.blurb}</div>
+          <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 10, paddingTop: 12, borderTop: `1px solid ${C.line}` }}>
+            <GearTypeArt type={type} />
+            <div style={{ flex: 1, minWidth: 180 }}>
+              <div style={{ fontSize: 14, fontWeight: 650, marginBottom: 3 }}>{GEAR_TYPES.find((g) => g.id === type)?.label}</div>
+              <div style={{ fontSize: 12.5, color: C.sub, lineHeight: 1.5 }}>{GEAR_TYPES.find((g) => g.id === type)?.blurb}</div>
+            </div>
+          </div>
         </Panel>
 
         {/* ===== GEOMETRY INPUTS ===== */}
@@ -129,6 +138,10 @@ export default function GearCalculator({ initialState, onStateChange } = {}) {
             {showShift && <Field label="Profile shift x₁"><input value={x1} onChange={(e) => setX1(e.target.value)} inputMode="decimal" style={{ ...inp, width: "100%" }} /></Field>}
             {showShift && showZ2 && <Field label="Profile shift x₂"><input value={x2} onChange={(e) => setX2(e.target.value)} inputMode="decimal" style={{ ...inp, width: "100%" }} /></Field>}
           </div>
+          {r.valid && <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.line}` }}>
+            <div className="mono" style={{ fontSize: 10, letterSpacing: ".06em", textTransform: "uppercase", color: C.faint, marginBottom: 8 }}>What the dimensions mean</div>
+            <DimensionDiagram r={r} fam={fam} type={type} mn={numOr(mn, 1)} alpha={numOr(alpha, 20)} />
+          </div>}
         </Panel>
 
         <Panel title="Load" hint="drives the strength rating">
@@ -148,8 +161,8 @@ export default function GearCalculator({ initialState, onStateChange } = {}) {
 
         <Panel title="Materials" hint="σ allowables by hardness — indicative, verify">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px,1fr))", gap: 14 }}>
-            <MatField label={isWorm ? "Worm" : "Pinion"} color={C.pinion} matId={mat1} onMat={setMat1} m={m1} />
-            <MatField label={isWorm ? "Wheel (usually bronze)" : "Gear"} color={C.gear} matId={mat2} onMat={setMat2} m={m2} />
+            <MatField label={isWorm ? "Worm" : "Pinion"} color={C.pinion} matId={mat1} onMat={setMat1} m={m1} cust={c1} onCust={setC1} />
+            <MatField label={isWorm ? "Wheel (usually bronze)" : "Gear"} color={C.gear} matId={mat2} onMat={setMat2} m={m2} cust={c2} onCust={setC2} />
           </div>
         </Panel>
 
@@ -257,16 +270,35 @@ function Cell({ k, val, u, hint, c }) { return (<div style={{ display: "flex", a
 function WarnNote({ children }) {
   return (<div className="mono" style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 11.5, color: C.warn, background: C.warnBg, border: `1px solid ${C.warn}44`, borderRadius: 7, padding: "8px 11px", marginTop: 12, lineHeight: 1.55 }}><AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} /><span>{children}</span></div>);
 }
-function MatField({ label, color, matId, onMat, m }) {
+function MatField({ label, color, matId, onMat, m, cust, onCust }) {
+  const isCustom = matId === "custom";
+  const setC = (k, v) => onCust({ ...cust, [k]: v });
   return (
     <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 10, padding: "12px 14px", borderLeft: `3px solid ${color}` }}>
       <div style={{ fontSize: 12.5, fontWeight: 650, color, marginBottom: 8 }}>{label}</div>
       <select value={matId} onChange={(e) => onMat(e.target.value)} style={{ ...sel, fontFamily: SANS }}>
         {GEAR_MATERIALS.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+        <option value="custom">Custom material…</option>
       </select>
-      <div className="mono" style={{ fontSize: 10, color: C.faint, marginTop: 7, lineHeight: 1.5 }}>σ_Hlim {m.sHlim} · σ_Flim {m.sFlim} MPa · {m.hardness} · {m.source}</div>
+      {isCustom ? (
+        <div style={{ marginTop: 9 }}>
+          <input value={cust.name} onChange={(e) => setC("name", e.target.value)} placeholder="Material name" style={{ fontFamily: SANS, fontSize: 12, color: C.ink, border: `1px solid ${C.line}`, borderRadius: 6, padding: "6px 8px", width: "100%", background: "#fff", marginBottom: 8 }} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <CustF label="σ_Hlim (MPa)" v={cust.sHlim} on={(x) => setC("sHlim", x)} />
+            <CustF label="σ_Flim (MPa)" v={cust.sFlim} on={(x) => setC("sFlim", x)} />
+            <CustF label="E (GPa)" v={cust.E} on={(x) => setC("E", x)} />
+            <CustF label="ν" v={cust.nu} on={(x) => setC("nu", x)} />
+            <CustF label="Hardness" v={cust.hardness} on={(x) => setC("hardness", x)} text />
+          </div>
+        </div>
+      ) : (
+        <div className="mono" style={{ fontSize: 10, color: C.faint, marginTop: 7, lineHeight: 1.5 }}>σ_Hlim {m.sHlim} · σ_Flim {m.sFlim} MPa · {m.hardness} · {m.source}</div>
+      )}
     </div>
   );
+}
+function CustF({ label, v, on, text }) {
+  return (<label style={{ display: "block" }}><div style={{ fontSize: 9.5, color: C.faint, marginBottom: 3 }}>{label}</div><input value={v} onChange={(e) => on(e.target.value)} inputMode={text ? "text" : "decimal"} style={{ fontFamily: MONO, fontSize: 12, color: C.ink, textAlign: "center", border: `1px solid ${C.line}`, borderRadius: 6, padding: "6px 6px", width: "100%", background: "#fff" }} /></label>);
 }
 function StressBar({ label, stress, allow, sf }) {
   const util = allow > 0 ? stress / allow : 0;
@@ -350,5 +382,172 @@ function Circle({ cx, cy, rp, ra, rb, color, z }) {
       {rb > 1 && <circle cx={cx} cy={cy} r={rb} fill="none" stroke={color} strokeWidth="0.6" opacity="0.5" />}
       {Array.from({ length: ticks }).map((_, i) => { const ang = (i / ticks) * Math.PI * 2; return <line key={i} x1={cx + Math.cos(ang) * rp} y1={cy + Math.sin(ang) * rp} x2={cx + Math.cos(ang) * ra} y2={cy + Math.sin(ang) * ra} stroke={color} strokeWidth="0.8" />; })}
     </g>
+  );
+}
+
+/** Castellated gear silhouette path (tip radius rt, root radius rr, n teeth). */
+function gearOutline(cx, cy, rt, rr, n) {
+  const fr = [[0, rr], [0.16, rr], [0.30, rt], [0.70, rt], [0.84, rr]];
+  let d = "";
+  for (let i = 0; i < n; i++) for (const [f, rad] of fr) {
+    const a = ((i + f) / n) * 2 * Math.PI - Math.PI / 2;
+    d += (d ? "L" : "M") + (cx + Math.cos(a) * rad).toFixed(1) + " " + (cy + Math.sin(a) * rad).toFixed(1) + " ";
+  }
+  return d + "Z";
+}
+
+/** Recognizable illustration of the selected gear type (schematic). */
+function GearTypeArt({ type }) {
+  const P = C.pinion, G = C.gear, W = 130, H = 100;
+  const wrap = (ch) => <svg viewBox={`0 0 ${W} ${H}`} width="120" height="92" fontFamily={SANS} style={{ flexShrink: 0 }}>{ch}</svg>;
+
+  if (type === "spur") return wrap(<g>
+    <path d={gearOutline(58, 50, 42, 33, 15)} fill={P + "1A"} stroke={P} strokeWidth="1.6" />
+    <circle cx="58" cy="50" r="33" fill="none" stroke={P} strokeWidth="0.7" strokeDasharray="3 2" />
+    <circle cx="58" cy="50" r="11" fill="#fff" stroke={P} strokeWidth="1.4" />
+  </g>);
+
+  if (type === "helical" || type === "herringbone") {
+    const lines = [];
+    for (let i = 0; i <= 9; i++) {
+      const x = 28 + i * 8;
+      if (type === "helical") lines.push(<line key={i} x1={x} y1={26} x2={x - 13} y2={74} stroke={P} strokeWidth="1.3" />);
+      else { lines.push(<line key={`a${i}`} x1={x} y1={26} x2={x - 9} y2={50} stroke={P} strokeWidth="1.2" />); lines.push(<line key={`b${i}`} x1={x - 9} y1={50} x2={x} y2={74} stroke={P} strokeWidth="1.2" />); }
+    }
+    return wrap(<g>
+      <path d="M30 26 L98 26 L98 74 L30 74 Z" fill={P + "10"} stroke="none" />
+      <clipPath id="cylclip"><path d="M30 26 L98 26 L98 74 A34 9 0 0 1 30 74 Z" /></clipPath>
+      <g clipPath="url(#cylclip)">{lines}</g>
+      <ellipse cx="64" cy="26" rx="34" ry="9" fill={P + "20"} stroke={P} strokeWidth="1.5" />
+      <line x1="30" y1="26" x2="30" y2="74" stroke={P} strokeWidth="1.5" />
+      <line x1="98" y1="26" x2="98" y2="74" stroke={P} strokeWidth="1.5" />
+      <path d="M30 74 A34 9 0 0 0 98 74" fill="none" stroke={P} strokeWidth="1.5" />
+    </g>);
+  }
+
+  if (type === "internal") return wrap(<g>
+    <circle cx="58" cy="50" r="45" fill={G + "10"} stroke={G} strokeWidth="1.6" />
+    <path d={gearOutline(58, 50, 30, 38, 16)} fill="#fff" stroke={G} strokeWidth="1.3" />
+    <path d={gearOutline(58, 50, 18, 13, 9)} fill={P + "1A"} stroke={P} strokeWidth="1.3" />
+  </g>);
+
+  if (type === "rack") {
+    const teeth = [];
+    for (let i = 0; i < 7; i++) { const x = 16 + i * 15; teeth.push(<path key={i} d={`M${x} 80 L${x + 4} 71 L${x + 11} 71 L${x + 15} 80`} fill="none" stroke={G} strokeWidth="1.4" />); }
+    return wrap(<g>
+      <path d={gearOutline(64, 38, 27, 20, 12)} fill={P + "1A"} stroke={P} strokeWidth="1.5" />
+      <circle cx="64" cy="38" r="7" fill="#fff" stroke={P} strokeWidth="1.2" />
+      <line x1="10" y1="80" x2="120" y2="80" stroke={G} strokeWidth="1.6" />
+      {teeth}
+    </g>);
+  }
+
+  if (type === "straight_bevel" || type === "spiral_bevel" || type === "miter") {
+    const apex = [64, 86];
+    const spiral = type === "spiral_bevel";
+    const cone = (x0, color, big) => {
+      const topY = big ? 16 : 30, halfTop = big ? 31 : 22, ry = big ? 7 : 5, teeth = [], tn = 7;
+      for (let i = 0; i <= tn; i++) {
+        const ex = x0 - halfTop + (2 * halfTop * i) / tn;
+        teeth.push(spiral
+          ? <path key={i} d={`M${ex} ${topY} Q${(ex + apex[0]) / 2 + 7} ${(topY + apex[1]) / 2} ${apex[0]} ${apex[1]}`} fill="none" stroke={color} strokeWidth="0.7" />
+          : <line key={i} x1={ex} y1={topY} x2={apex[0]} y2={apex[1]} stroke={color} strokeWidth="0.6" />);
+      }
+      return <g><path d={`M${x0 - halfTop} ${topY} L${x0 + halfTop} ${topY} L${apex[0]} ${apex[1]} Z`} fill={color + "16"} stroke={color} strokeWidth="1.6" /><ellipse cx={x0} cy={topY} rx={halfTop} ry={ry} fill={color + "26"} stroke={color} strokeWidth="1.4" />{teeth}</g>;
+    };
+    if (type === "miter") return wrap(<g>{cone(40, P, false)}{cone(88, G, false)}</g>);
+    return wrap(<g>{cone(48, G, true)}{cone(98, P, false)}</g>);
+  }
+
+  // worm + wheel
+  return wrap(<g>
+    <path d={gearOutline(64, 28, 27, 21, 16)} fill={G + "1A"} stroke={G} strokeWidth="1.5" />
+    <circle cx="64" cy="28" r="7" fill="#fff" stroke={G} strokeWidth="1.2" />
+    <rect x="22" y="60" width="84" height="24" rx="12" fill={P + "14"} stroke={P} strokeWidth="1.6" />
+    {Array.from({ length: 8 }).map((_, i) => <line key={i} x1={28 + i * 11} y1="60" x2={23 + i * 11} y2="84" stroke={P} strokeWidth="1.1" />)}
+  </g>);
+}
+
+/** Annotated diagram explaining the geometry the inputs produce (live values). */
+function DimensionDiagram({ r, fam, type, mn, alpha }) {
+  const lab = (x, y, t, c) => <text x={x} y={y} fontSize="10" fontFamily={MONO} fill={c || C.sub}>{t}</text>;
+  if (fam === "cylindrical") {
+    const da = r.da1, d = r.d1, df = Math.max(1, r.df1);
+    const VB = 470, VH = 200, cx = 116, cy = 100;
+    const a = isFinite(r.workingCenterDistance) ? r.workingCenterDistance : d;
+    const da2 = isFinite(r.da2) ? r.da2 : da;
+    const span = type === "rack" ? da * 1.2 : a + da / 2 + da2 / 2;
+    const sc = Math.min(78 / (da / 2), (VB - 200) / Math.max(span, 1));
+    const R = (mm) => Math.max(1, (mm / 2) * sc);
+    const teeth = Math.min(36, Math.max(7, Math.round(d / Math.max(0.5, mn))));
+    const leader = (rr, ty, txt) => <g><line x1={cx} y1={cy} x2={cx} y2={cy - rr} stroke={C.faint} strokeWidth="0.6" /><line x1={cx} y1={cy - rr} x2={cx + 96} y2={ty} stroke={C.faint} strokeWidth="0.6" strokeDasharray="2 2" /><circle cx={cx} cy={cy - rr} r="1.6" fill={C.sub} />{lab(cx + 100, ty + 3, txt)}</g>;
+    return (
+      <div style={{ overflowX: "auto" }}>
+        <svg viewBox={`0 0 ${VB} ${VH}`} width="100%" style={{ minWidth: 440, display: "block" }} fontFamily={SANS}>
+          <path d={gearOutline(cx, cy, R(da), R(df), teeth)} fill={C.pinionBg} stroke={C.pinion} strokeWidth="1.4" />
+          <circle cx={cx} cy={cy} r={R(d)} fill="none" stroke={C.pinion} strokeWidth="1" strokeDasharray="4 3" />
+          {R(df) > 6 && <circle cx={cx} cy={cy} r={Math.max(4, R(df) - R(da) + R(d) * 0.5)} fill="#fff" stroke={C.line} strokeWidth="1" />}
+          {leader(R(da), 34, `da ${fmt(da, 2)}  tip Ø`)}
+          {leader(R(d), 70, `d  ${fmt(d, 2)}  pitch Ø`)}
+          {leader(R(df), 106, `df ${fmt(df, 2)}  root Ø`)}
+          {/* addendum / dedendum bracket */}
+          <line x1={cx - R(da) - 6} y1={cy} x2={cx - R(df) - 6} y2={cy} stroke={C.faint} strokeWidth="0.6" />
+          <line x1={cx - R(da)} y1={cy + 0} x2={cx - R(da) - 10} y2={cy} stroke={C.gear} strokeWidth="1" />
+          {lab(cx - R(da) - 70, cy - 4, `ha ${fmt((da - d) / 2, 2)}`, C.gear)}
+          {lab(cx - R(da) - 70, cy + 12, `hf ${fmt((d - df) / 2, 2)}`, C.gear)}
+          {type !== "rack" && <>
+            <circle cx={cx + a * sc} cy={cy} r={R(da2)} fill="none" stroke={C.gear} strokeWidth="1" strokeDasharray="2 3" opacity="0.7" />
+            <line x1={cx} y1={cy} x2={cx + a * sc} y2={cy} stroke={C.ink} strokeWidth="0.8" />
+            <circle cx={cx} cy={cy} r="2" fill={C.ink} /><circle cx={cx + a * sc} cy={cy} r="2" fill={C.ink} />
+            {lab((2 * cx + a * sc) / 2 - 28, cy - 6, `a ${fmt(a, 2)}`, C.ink)}
+          </>}
+          {lab(cx + 100, 140, `module ${fmt(mn, 3)}`)}
+          {lab(cx + 100, 156, `pressure ∠ ${fmt(alpha, 1)}°`)}
+        </svg>
+        <div className="mono" style={{ fontSize: 10, color: C.faint, marginTop: 4, lineHeight: 1.5 }}>Tip (da), pitch (d, dashed) and root (df) circles. Addendum ha and dedendum hf are the tooth above/below the pitch line; a is the centre distance to the mating gear (dashed).</div>
+      </div>
+    );
+  }
+  if (fam === "bevel") {
+    const VB = 470, VH = 190, ax = 150, ay = 150;
+    const d1 = r.coneAngle1 * Math.PI / 180, L = 110;
+    const ex = ax + Math.cos(d1) * L, ey = ay - Math.sin(d1) * L;
+    return (
+      <div style={{ overflowX: "auto" }}>
+        <svg viewBox={`0 0 ${VB} ${VH}`} width="100%" style={{ minWidth: 440, display: "block" }} fontFamily={SANS}>
+          <line x1={ax} y1={ay} x2={ax + 130} y2={ay} stroke={C.faint} strokeWidth="0.7" strokeDasharray="3 3" />
+          <line x1={ax} y1={ay} x2={ex} y2={ey} stroke={C.pinion} strokeWidth="1.6" />
+          <line x1={ax} y1={ay} x2={ex} y2={ay + (ay - ey)} stroke={C.pinion} strokeWidth="1.6" />
+          <line x1={ex} y1={ey} x2={ex} y2={ay + (ay - ey)} stroke={C.pinion} strokeWidth="1.4" />
+          <path d={`M${ax + 40} ${ay} A40 40 0 0 0 ${ax + Math.cos(d1) * 40} ${ay - Math.sin(d1) * 40}`} fill="none" stroke={C.gear} strokeWidth="1" />
+          {lab(ax + 46, ay - 8, `δ ${fmt(r.coneAngle1, 1)}°`, C.gear)}
+          {lab(ex - 18, ey - 8, `Re ${fmt(r.outerConeDistance, 1)}`, C.sub)}
+          {lab(ax + 250, 50, `pitch Ø d₁/d₂  ${fmt(r.d1, 1)} / ${fmt(r.d2, 1)}`)}
+          {lab(ax + 250, 70, `outer module  ${fmt(mn, 3)}`)}
+          {lab(ax + 250, 90, `mean module  ${fmt(r.meanModule, 3)}`)}
+          {lab(ax + 250, 110, `cone angles  ${fmt(r.coneAngle1, 1)}° / ${fmt(r.coneAngle2, 1)}°`)}
+        </svg>
+        <div className="mono" style={{ fontSize: 10, color: C.faint, marginTop: 4, lineHeight: 1.5 }}>Side view of the pinion cone: δ is the pitch cone angle, Re the outer cone distance. The module shrinks from outer to mean along the face.</div>
+      </div>
+    );
+  }
+  // worm
+  const VB = 470, VH = 180;
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <svg viewBox={`0 0 ${VB} ${VH}`} width="100%" style={{ minWidth: 440, display: "block" }} fontFamily={SANS}>
+        <circle cx="110" cy="56" r="40" fill={C.gearBg} stroke={C.gear} strokeWidth="1.5" />
+        <circle cx="110" cy="56" r="8" fill="#fff" stroke={C.gear} strokeWidth="1.2" />
+        {lab(150, 40, `wheel d₂ ${fmt(r.d2, 1)}`, C.gear)}
+        <rect x="60" y="104" width="160" height="34" rx="17" fill={C.pinionBg} stroke={C.pinion} strokeWidth="1.5" />
+        {Array.from({ length: 10 }).map((_, i) => <line key={i} x1={70 + i * 15} y1="104" x2={62 + i * 15} y2="138" stroke={C.pinion} strokeWidth="1" />)}
+        {lab(228, 110, `worm d₁ ${fmt(r.d1, 1)}`, C.pinion)}
+        {lab(228, 126, `lead ∠ γ ${fmt(r.leadAngle, 1)}°`)}
+        {lab(228, 142, `centre a ${fmt(r.centerDistance, 1)}`)}
+        {lab(228, 158, `axial pitch ${fmt(Math.PI * mn, 2)}`)}
+        {lab(60, 158, `ratio i ${fmt(r.ratio, 1)} · ${r.selfLocking ? "self-locking" : "back-drivable"}`)}
+      </svg>
+      <div className="mono" style={{ fontSize: 10, color: C.faint, marginTop: 4, lineHeight: 1.5 }}>The worm (screw) drives the wheel at 90°. Lead angle γ sets the ratio and whether it self-locks; axial pitch = π·mx.</div>
+    </div>
   );
 }

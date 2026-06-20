@@ -59,6 +59,26 @@ export const MODULES: ModuleDef[] = [
     saveable: true,
   },
   {
+    slug: "gdt-stack",
+    type: "gdt_stack",
+    label: "GD&T-aware Stack-Up",
+    standard: "± + geometric → WC / RSS",
+    blurb:
+      "A stack-up that mixes plain ± dimensions with geometric callouts — position, profile, orientation, form, runout. Each converts to its equivalent ± so GD&T and dimensional tolerances compete on the same footing.",
+    tier: "pro",
+    saveable: true,
+  },
+  {
+    slug: "gdt-analyzer",
+    type: "gdt",
+    label: "2D GD&T Analyzer",
+    standard: "GD&T · ASME Y14.5",
+    blurb:
+      "Check a whole feature pattern and any geometric callout — position, profile, orientation, form, runout — with MMC/LMC bonus, virtual condition and a 2D datum-frame map of the tolerance zones.",
+    tier: "pro",
+    saveable: true,
+  },
+  {
     slug: "true-position",
     type: "true_position",
     label: "True Position",
