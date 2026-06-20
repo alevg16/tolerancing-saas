@@ -8,6 +8,7 @@ import ToleranceAllocation from "./ToleranceAllocation";
 import PressFit from "./PressFit";
 import TruePosition from "./TruePosition";
 import ThermalStack from "./ThermalStack";
+import GearCalculator from "./GearCalculator";
 
 /** Props a saveable module accepts. Tools that don't persist simply ignore them. */
 export interface CalculatorProps {
@@ -24,4 +25,5 @@ export const CALCULATORS: Record<ModuleType, ComponentType<CalculatorProps>> = {
   press_fit: PressFit,
   true_position: TruePosition,
   thermal_stack: ThermalStack,
+  gear: GearCalculator,
 };

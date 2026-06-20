@@ -69,6 +69,16 @@ export const MODULES: ModuleDef[] = [
     saveable: true,
   },
   {
+    slug: "gear",
+    type: "gear",
+    label: "Gear Calculator",
+    standard: "ISO 21771 · Lewis / Hertz",
+    blurb:
+      "All common gear types in one tool — spur, helical, herringbone, internal, rack, bevel (straight/spiral/miter) and worm. Exact geometry plus a material/hardness-driven bending & contact strength estimate.",
+    tier: "pro",
+    saveable: true,
+  },
+  {
     slug: "hole-shaft-fit",
     type: "hole_shaft_fit",
     label: "Hole / Shaft Fit",
