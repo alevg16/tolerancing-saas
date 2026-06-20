@@ -11,11 +11,12 @@ const LINKS = [
   { href: "/billing", label: "Billing" },
 ];
 
-export default function NavLinks() {
+export default function NavLinks({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const links = isAdmin ? [...LINKS, { href: "/settings/modules", label: "Settings" }] : LINKS;
   return (
     <nav style={{ display: "flex", gap: 4 }}>
-      {LINKS.map((l) => {
+      {links.map((l) => {
         const active = pathname === l.href || pathname.startsWith(`${l.href}/`);
         return (
           <Link

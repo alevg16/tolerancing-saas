@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MODULES } from "@/lib/modules";
+import { getModulesWithTiers } from "@/lib/data/moduleTiers";
 import { C } from "@/lib/design/tokens";
 
 export const metadata: Metadata = { title: "Tools · Tolerancing" };
 
-export default function ToolsPage() {
+export default async function ToolsPage() {
+  const MODULES = await getModulesWithTiers();
   return (
     <div style={{ maxWidth: 880, margin: "0 auto", padding: "30px 22px 56px" }}>
       <h1 style={{ fontSize: 22, fontWeight: 650, margin: "0 0 6px" }}>Tools</h1>

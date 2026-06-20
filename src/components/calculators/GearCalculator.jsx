@@ -52,14 +52,17 @@ export default function GearCalculator({ initialState, onStateChange } = {}) {
   const [speed, setSpeed] = useState(init?.speed ?? "1000");
   const [torque, setTorque] = useState(init?.torque ?? "50");
   const [ka, setKa] = useState(init?.ka ?? "1.25");
+  const [qv, setQv] = useState(init?.qv ?? "6");
+  const [mounting, setMounting] = useState(init?.mounting ?? "commercial");
+  const [life, setLife] = useState(init?.life ?? "1e9");
   const [mat1, setMat1] = useState(init?.mat1 ?? "steel-case-60");
   const [mat2, setMat2] = useState(init?.mat2 ?? "steel-case-60");
   const [c1, setC1] = useState(init?.c1 ?? { name: "Custom", E: "206", nu: "0.30", sHlim: "1000", sFlim: "350", hardness: "—" });
   const [c2, setC2] = useState(init?.c2 ?? { name: "Custom", E: "206", nu: "0.30", sHlim: "1000", sFlim: "350", hardness: "—" });
 
   useEffect(() => {
-    onStateChange?.({ type, mn, z1, z2, alpha, helix, face, x1, x2, shaft, q, mu, loadMode, power, speed, torque, ka, mat1, mat2, c1, c2 });
-  }, [type, mn, z1, z2, alpha, helix, face, x1, x2, shaft, q, mu, loadMode, power, speed, torque, ka, mat1, mat2, c1, c2, onStateChange]);
+    onStateChange?.({ type, mn, z1, z2, alpha, helix, face, x1, x2, shaft, q, mu, loadMode, power, speed, torque, ka, qv, mounting, life, mat1, mat2, c1, c2 });
+  }, [type, mn, z1, z2, alpha, helix, face, x1, x2, shaft, q, mu, loadMode, power, speed, torque, ka, qv, mounting, life, mat1, mat2, c1, c2, onStateChange]);
 
   const fam = familyOf(type);
   const showHelix = type === "helical" || type === "herringbone" || type === "spiral_bevel";
@@ -81,8 +84,9 @@ export default function GearCalculator({ initialState, onStateChange } = {}) {
     helixAngle: showHelix ? numOr(helix) : 0, faceWidth: numOr(face, 1), profileShift1: numOr(x1), profileShift2: numOr(x2),
     shaftAngle: numOr(shaft, 90), diameterFactor: numOr(q, 10), mu: numOr(mu),
     power: numOr(power), speed: numOr(speed), torque: numOr(torque), useTorque: loadMode === "torque", KA: numOr(ka, 1),
+    qualityGrade: numOr(qv, 6), mounting, lifeCycles: numOr(life, 1e9),
     mat1: m1, mat2: m2,
-  }), [type, mn, z1, z2, alpha, helix, face, x1, x2, shaft, q, mu, power, speed, torque, loadMode, ka, m1, m2, showHelix]);
+  }), [type, mn, z1, z2, alpha, helix, face, x1, x2, shaft, q, mu, power, speed, torque, loadMode, ka, qv, mounting, life, m1, m2, showHelix]);
 
   const minSF = Math.min(r.SF_bending, r.SF_contact);
   const v = verdict(minSF);
@@ -156,6 +160,9 @@ export default function GearCalculator({ initialState, onStateChange } = {}) {
               : <Field label="Torque (N·m)"><input value={torque} onChange={(e) => setTorque(e.target.value)} inputMode="decimal" style={{ ...inp, width: "100%" }} /></Field>}
             <Field label={`Speed n₁ (rpm)`} hint={isWorm ? "worm speed" : "pinion speed"}><input value={speed} onChange={(e) => setSpeed(e.target.value)} inputMode="decimal" style={{ ...inp, width: "100%" }} /></Field>
             <Field label="Service factor KA" hint="1.0 smooth · 1.5 shock"><input value={ka} onChange={(e) => setKa(e.target.value)} inputMode="decimal" style={{ ...inp, width: "100%" }} /></Field>
+            <Field label="Quality grade Qv" hint="AGMA 5–11; higher = finer"><select value={qv} onChange={(e) => setQv(e.target.value)} style={{ ...sel, fontFamily: SANS }}>{[5, 6, 7, 8, 9, 10, 11].map((g) => <option key={g} value={g}>Qv {g}</option>)}</select></Field>
+            <Field label="Mounting / alignment"><select value={mounting} onChange={(e) => setMounting(e.target.value)} style={{ ...sel, fontFamily: SANS }}>{[["open", "Open gearing"], ["commercial", "Commercial enclosed"], ["precision", "Precision enclosed"], ["extra_precision", "Extra-precision"]].map(([vv, l]) => <option key={vv} value={vv}>{l}</option>)}</select></Field>
+            <Field label="Life (cycles)" hint="finite life raises σ allow"><input value={life} onChange={(e) => setLife(e.target.value)} inputMode="decimal" style={{ ...inp, width: "100%" }} /></Field>
           </div>
         </Panel>
 
@@ -228,18 +235,25 @@ export default function GearCalculator({ initialState, onStateChange } = {}) {
               {isWorm && r.selfLocking && <div className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: C.accent, background: C.accentBg, border: `1px solid ${C.accent}44`, borderRadius: 7, padding: "8px 11px", marginTop: 12 }}><Lock size={13} /> Self-locking — the wheel can&apos;t back-drive the worm (static; verify under vibration).</div>}
             </Panel>
 
-            <Panel title="Load & rating" hint="Lewis bending · Hertz contact">
+            <Panel title="Load & rating" hint="ISO 6336 / AGMA factor chain">
               <Grid>
                 <Cell k={isWorm ? "Worm torque" : "Pinion torque"} val={fmt(r.torque1)} u="N·m" />
                 <Cell k={isWorm ? "Wheel tangential force" : "Tangential force Ft"} val={fmt(r.Ft, 0)} u="N" />
                 <Cell k="Pitch-line velocity" val={fmt(r.pitchVelocity)} u="m/s" />
-                {!isWorm && <Cell k="Dynamic factor Kv" val={fmt(r.Kv)} />}
+                <Cell k="Load factor K = KA·Kv·KHβ·KHα" val={fmt(r.factors.KA * r.factors.Kv * r.factors.KHbeta * r.factors.KHalpha, 2)} />
                 <Cell k="Bending stress σF" val={fmt(r.sigmaF, 0)} u="MPa" hint={`allow ${fmt(r.sigmaFAllow, 0)}`} />
                 <Cell k="Contact stress σH" val={fmt(r.sigmaH, 0)} u="MPa" hint={`allow ${fmt(r.sigmaHAllow, 0)}`} />
                 <Cell k="Bending SF" val={fmt(r.SF_bending, 2)} c={verdict(r.SF_bending).c} />
                 <Cell k="Contact SF" val={fmt(r.SF_contact, 2)} c={verdict(r.SF_contact).c} />
               </Grid>
-              {r.notes.length > 0 && <div className="mono" style={{ fontSize: 10.5, color: C.faint, marginTop: 12, lineHeight: 1.6 }}>{r.notes.join(" ")}</div>}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 14 }}>
+                {[["KA", r.factors.KA], ["Kv", r.factors.Kv], ["KHβ", r.factors.KHbeta], ["KHα", r.factors.KHalpha], ["Zβ", r.factors.Zbeta], ["Zε", r.factors.Zeps], ["Yε", r.factors.Yeps], ["Yβ", r.factors.Ybeta], ["ZNT", r.factors.ZNT], ["YNT", r.factors.YNT]].map(([kk, val]) => (
+                  <span key={kk} className="mono" style={{ fontSize: 10.5, color: Math.abs(val - 1) < 1e-6 ? C.faint : C.sub, background: C.paper, border: `1px solid ${C.line}`, borderRadius: 6, padding: "3px 8px" }}>{kk} {fmt(val, 3)}</span>
+                ))}
+              </div>
+              <div className="mono" style={{ fontSize: 10.5, color: C.faint, marginTop: 10, lineHeight: 1.6 }}>
+                σF = (Ft·K/(b·m·Y))·Yε·Yβ vs σ_Flim·YNT; σH = ZE·ZH·Zε·Zβ·√(Ft·K/(b·d)·(u±1)/u) vs σ_Hlim·ZNT. Closer to ISO 6336 but still an estimate — ZL/Zv/ZR/ZW/YX and full KHβ analysis are not included. {r.notes.length > 0 ? r.notes.join(" ") : ""}
+              </div>
             </Panel>
           </>
         )}

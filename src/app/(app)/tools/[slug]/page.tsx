@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getModuleBySlug } from "@/lib/modules";
+import { getEffectiveModuleBySlug } from "@/lib/data/moduleTiers";
 import { getCurrentOrg } from "@/lib/auth/dal";
 import { getCurrentPlan } from "@/lib/auth/plan";
 import CalculatorMount from "@/components/calculators/CalculatorMount";
@@ -11,7 +11,7 @@ export default async function ToolPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const mod = getModuleBySlug(slug);
+  const mod = await getEffectiveModuleBySlug(slug);
   if (!mod) notFound();
 
   if (mod.tier === "pro") {

@@ -8,11 +8,13 @@ export default function AppShell({
   orgs,
   currentOrgId,
   userEmail,
+  isAdmin = false,
   children,
 }: {
   orgs: { id: string; name: string }[];
   currentOrgId: string;
   userEmail: string;
+  isAdmin?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -43,7 +45,7 @@ export default function AppShell({
         >
           Tolerancing
         </Link>
-        <NavLinks />
+        <NavLinks isAdmin={isAdmin} />
         <span style={{ flex: 1 }} />
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <OrgSwitcher orgs={orgs} currentId={currentOrgId} />

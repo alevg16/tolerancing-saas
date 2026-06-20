@@ -5,6 +5,11 @@ import {
   elasticCoefficient,
   pitchLineVelocity,
   dynamicFactor,
+  agmaDynamicFactor,
+  faceLoadFactor,
+  transverseFactor,
+  contactLifeFactor,
+  bendingLifeFactor,
   torqueFromPower,
   analyzeGear,
   gearMaterialById,
@@ -19,7 +24,9 @@ function makeInput(p: Partial<GearInput> & { type: GearType }): GearInput {
   return {
     type: p.type, module: 2, z1: 20, z2: 40, pressureAngle: 20, helixAngle: 0,
     faceWidth: 20, profileShift1: 0, profileShift2: 0, shaftAngle: 90, diameterFactor: 10, mu: 0,
-    power: 5, speed: 1000, torque: 0, useTorque: false, KA: 1.25, mat1: steel, mat2: steel, ...p,
+    power: 5, speed: 1000, torque: 0, useTorque: false, KA: 1.25,
+    qualityGrade: 6, mounting: "commercial", lifeCycles: 1e9,
+    mat1: steel, mat2: steel, ...p,
   };
 }
 
@@ -150,6 +157,36 @@ describe("rating relationships", () => {
     const rt = analyzeGear(makeInput({ type: "spur", useTorque: true, torque: 100 }));
     expect(rt.torque1).toBe(100);
     expect(rt.Ft).toBeCloseTo((2 * 100 * 1000) / rt.d1, 3);
+  });
+});
+
+describe("ISO 6336 / AGMA rating factors", () => {
+  it("AGMA dynamic factor rises with speed and falls with better quality", () => {
+    expect(agmaDynamicFactor(6, 2.0944)).toBeCloseTo(1.275, 2);
+    expect(agmaDynamicFactor(11, 5)).toBeLessThan(agmaDynamicFactor(5, 5));
+    expect(agmaDynamicFactor(8, 0)).toBeCloseTo(1, 6); // no velocity → 1
+  });
+  it("face-load factor matches AGMA Km and improves with mounting class", () => {
+    expect(faceLoadFactor(20, 40, "commercial")).toBeCloseTo(1.164, 2);
+    expect(faceLoadFactor(20, 40, "precision")).toBeLessThan(faceLoadFactor(20, 40, "commercial"));
+    expect(faceLoadFactor(80, 40, "commercial")).toBeGreaterThan(faceLoadFactor(20, 40, "commercial")); // wider face, more spread
+  });
+  it("transverse and life factors", () => {
+    expect(transverseFactor(6)).toBeCloseTo(1.25, 6);
+    expect(transverseFactor(11)).toBeCloseTo(1.0, 6);
+    expect(contactLifeFactor(1e9)).toBe(1.0);
+    expect(contactLifeFactor(1e6)).toBeGreaterThan(1);
+    expect(bendingLifeFactor(3e6)).toBe(1.0);
+    expect(bendingLifeFactor(1e5)).toBeGreaterThan(1);
+  });
+  it("analyzeGear exposes the factor set and applies life to the allowables", () => {
+    const r = analyzeGear(makeInput({ type: "spur", qualityGrade: 6, mounting: "commercial", lifeCycles: 1e9 }));
+    expect(r.factors.Kv).toBeCloseTo(agmaDynamicFactor(6, r.pitchVelocity), 6);
+    expect(r.factors.KHbeta).toBeCloseTo(faceLoadFactor(20, r.d1, "commercial"), 6);
+    expect(r.sigmaHAllow).toBeCloseTo(Math.min(steel.sHlim, steel.sHlim) * r.factors.ZNT, 4);
+    // finite life raises the allowable above the endurance limit
+    const short = analyzeGear(makeInput({ type: "spur", lifeCycles: 1e6 }));
+    expect(short.sigmaHAllow).toBeGreaterThan(r.sigmaHAllow);
   });
 });
 

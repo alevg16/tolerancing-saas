@@ -11,6 +11,7 @@ const PROTECTED_PREFIXES = [
   "/billing",
   "/report",
   "/account",
+  "/settings",
 ];
 
 function isProtected(pathname: string) {

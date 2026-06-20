@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getProject } from "@/lib/data/projects";
-import { getModuleByType } from "@/lib/modules";
+import { getEffectiveModuleByType } from "@/lib/data/moduleTiers";
 import { getCurrentOrg } from "@/lib/auth/dal";
 import { getCurrentPlan } from "@/lib/auth/plan";
 import ProjectWorkspace from "@/components/projects/ProjectWorkspace";
@@ -15,7 +15,7 @@ export default async function ProjectPage({
   const project = await getProject(id); // RLS scopes this to the user's orgs
   if (!project) notFound();
 
-  const mod = getModuleByType(project.module_type);
+  const mod = await getEffectiveModuleByType(project.module_type);
   if (!mod) notFound();
 
   if (mod.tier === "pro") {
