@@ -12,7 +12,8 @@ export type ModuleType =
   | "linear_stack"
   | "tolerance_allocation"
   | "press_fit"
-  | "true_position";
+  | "true_position"
+  | "thermal_stack";
 
 export interface Organization {
   id: string;

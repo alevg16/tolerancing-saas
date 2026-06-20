@@ -39,6 +39,16 @@ export const MODULES: ModuleDef[] = [
     saveable: true,
   },
   {
+    slug: "thermal-stack",
+    type: "thermal_stack",
+    label: "Thermal Stack-Up",
+    standard: "Differential expansion",
+    blurb:
+      "A linear stack where each dimension is on its own material, so the gap drifts with temperature. Gap at temperature, worst-case/RSS yield, the temperature window that stays in spec, and which part's expansion drives the drift.",
+    tier: "pro",
+    saveable: true,
+  },
+  {
     slug: "press-fit",
     type: "press_fit",
     label: "Press / Shrink Fit",
