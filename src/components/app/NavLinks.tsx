@@ -7,6 +7,7 @@ import { C } from "@/lib/design/tokens";
 const LINKS = [
   { href: "/dashboard", label: "Projects" },
   { href: "/tools", label: "Tools" },
+  { href: "/standards", label: "Standards" },
   { href: "/team", label: "Team" },
   { href: "/billing", label: "Billing" },
 ];

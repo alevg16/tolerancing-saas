@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getUser } from "@/lib/auth/dal";
 import { getCurrentPlan } from "@/lib/auth/plan";
 import { getProject } from "@/lib/data/projects";
+import { getReportSettings } from "@/lib/data/reportSettings";
 import { getModuleByType } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/server";
 import ReportView from "@/components/report/ReportView";
@@ -25,13 +26,12 @@ export default async function ReportPage({
   const mod = getModuleByType(project.module_type);
   if (!mod) notFound();
 
-  // Brand the report with the project's workspace name.
+  // Brand the report with the workspace name + the org's report settings.
   const supabase = await createClient();
-  const { data: org } = await supabase
-    .from("organizations")
-    .select("name")
-    .eq("id", project.organization_id)
-    .maybeSingle();
+  const [{ data: org }, settings] = await Promise.all([
+    supabase.from("organizations").select("name").eq("id", project.organization_id).maybeSingle(),
+    getReportSettings(project.organization_id),
+  ]);
 
   return (
     <ReportView
@@ -40,6 +40,7 @@ export default async function ReportPage({
       moduleLabel={mod.label}
       standard={mod.standard}
       preparedBy={user.email ?? ""}
+      settings={settings}
     />
   );
 }
