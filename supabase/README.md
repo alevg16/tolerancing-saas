@@ -7,79 +7,34 @@ Multi-tenant schema (org-rooted) + Row-Level Security for the Phase 1 spine.
 ```
 supabase/
   migrations/
-    20260619090000_init_schema.sql        tables, indexes, updated_at triggers
-    20260619090100_rls_and_policies.sql   helper fns, auto-provisioning, RLS policies
-  seed.sql                                 (empty — rows are auto-provisioned on signup)
+    0001_init.sql         tables, indexes, helper fns, updated_at triggers,
+                          signup auto-provisioning (org-of-one + owner + free sub),
+                          RLS policies
+    0002_invitations.sql  invitations table + RLS, accept_invitation /
+                          invitation_preview RPCs
+    0003_module_tiers.sql module_tiers overrides (which modules are free vs pro)
+    0004_hardening.sql    Stripe webhook idempotency ledger, report-settings
+                          singleton index, teams security (invite email match,
+                          owner-role ceiling, last-owner protection)
+  seed.sql                (empty — rows are auto-provisioned on signup)
 ```
 
-## Tables
+Apply in order (`0001` → `0004`). `0004` is idempotent and safe to run on a
+project that already has `0001`–`0003`.
 
-| table           | purpose                                              | tenant key        |
-|-----------------|------------------------------------------------------|-------------------|
-| `organizations` | ownership root (a solo user is an org of one)        | `id`              |
-| `users`         | profile, 1:1 with `auth.users`                        | via `memberships` |
-| `memberships`   | user ↔ org + role (`owner`/`admin`/`member`)          | `organization_id` |
-| `projects`      | saved analyses; inputs/results in `data` JSONB        | `organization_id` |
-| `library_items` | shared company standards library                      | `organization_id` |
-| `subscriptions` | Stripe-synced billing state (one per org)             | `organization_id` |
+## Applying migrations
 
-`module_type` (projects) and `type` (library_items) are free text so new
-calculator modules need **no migration** — payloads go in the JSONB `data` column.
+- **Supabase Dashboard → SQL Editor**: paste each file in order and run.
+- **Supabase CLI**: `supabase db push` (or `supabase db reset` locally, which
+  re-runs every migration then `seed.sql`).
 
-`invitations` and `project_revisions` from CLAUDE.md are deferred ("Later") and
-not created yet.
+## Ownership model
 
-## The RLS model
+The root of ownership is the **organization** — a solo user is an org of one,
+never user-owned, to avoid painful migrations later. Every row carries an
+`organization_id`, and RLS restricts reads/writes to members of that org via the
+`is_org_member()` / `org_role()` SECURITY DEFINER helpers.
 
-Every tenant table enforces: **you can touch a row only if you're a member of its
-`organization_id`.** Membership is checked through SECURITY DEFINER helpers
-(`is_org_member`, `has_org_role`, `shares_org`) which bypass RLS — this avoids the
-classic infinite-recursion footgun where a policy on `memberships` queries
-`memberships`.
-
-- **Reads/writes** on `projects` & `library_items`: any org member.
-- **Roster** (`memberships`) and **org** updates: `owner`/`admin` only; delete org: `owner`.
-- **`subscriptions`**: members can read; there is **no write policy**, so the Stripe
-  webhook must write with the `service_role` key (which bypasses RLS). Never trust the
-  client for billing state.
-
-### Provisioning on signup
-`handle_new_user()` fires on `auth.users` insert and creates: the profile row, an
-org-of-one, and an `owner` membership. To create additional orgs from the app, call
-the RPC:
-
-```ts
-const { data: orgId } = await supabase.rpc('create_organization', { org_name: 'Acme' })
-```
-
-## Apply the migrations
-
-This repo has no Supabase project linked yet and the CLI isn't installed here, so do
-the setup step on your own machine:
-
-```bash
-# 1. install the CLI (pick one)
-npm i -g supabase            # or: scoop install supabase / brew install supabase
-
-# 2. from the project root that contains this supabase/ folder
-supabase init                # generates config.toml if you don't have one
-                             # (keep this migrations/ folder)
-
-# --- local (Docker) ---
-supabase start
-supabase db reset            # applies both migrations + seed.sql
-
-# --- or push to a hosted project ---
-supabase login
-supabase link --project-ref <your-project-ref>
-supabase db push
-```
-
-No CLI? Open the Supabase dashboard → **SQL Editor** and run the two migration files
-in filename order (`…090000` then `…090100`).
-
-## Smoke-testing RLS
-
-After creating two users in two different orgs, confirm isolation — e.g. sign in as
-user A and select projects; you must see only org A's rows. With the `service_role`
-key (server-side only) RLS is bypassed by design.
+`subscriptions` and `stripe_events` have **no client write policy** — only the
+service role (the Stripe webhook) may mutate them. Features are gated
+server-side from the synced subscription state, never trusted from the client.

@@ -36,3 +36,7 @@ Thumbs.db
 *secret*
 *.pem
 *.key
+
+# TypeScript (generated)
+next-env.d.ts
+*.tsbuildinfo

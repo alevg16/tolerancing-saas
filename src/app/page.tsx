@@ -2,6 +2,7 @@ import Link from "next/link";
 import HoleShaftFit from "@/components/calculators/HoleShaftFit";
 import ModuleShowcase from "@/components/marketing/ModuleShowcase";
 import Pricing from "@/components/marketing/Pricing";
+import MarketingFooter from "@/components/marketing/MarketingFooter";
 import { getModulesWithTiers } from "@/lib/data/moduleTiers";
 import { C, MONO, SANS } from "@/lib/design/tokens";
 
@@ -56,13 +57,7 @@ export default async function LandingPage() {
       <Pricing />
 
       {/* footer */}
-      <footer style={{ maxWidth: 1000, margin: "0 auto", padding: "24px 22px 48px", textAlign: "center", borderTop: `1px solid ${C.line}` }}>
-        <div className="mono" style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: C.faint, marginBottom: 8 }}>Tolerancing</div>
-        <p style={{ fontSize: 12.5, color: C.sub, margin: "0 0 10px" }}>
-          Accuracy-first tolerance analysis for mechanical engineers. Values verified against ISO 286, ISO 965 and VDI 2230.
-        </p>
-        <Link href="/login" style={{ fontSize: 13, color: C.accent, fontWeight: 600, textDecoration: "none" }}>Get started →</Link>
-      </footer>
+      <MarketingFooter />
     </div>
   );
 }

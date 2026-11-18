@@ -25,9 +25,20 @@ export async function startCheckoutAction(formData?: FormData) {
   const supabase = await createClient();
   const { data: sub } = await supabase
     .from("subscriptions")
-    .select("stripe_customer_id")
+    .select("stripe_customer_id, plan, status")
     .eq("organization_id", organization.id)
     .maybeSingle();
+
+  // Already on a paid, live plan → send them to the portal to change it rather
+  // than opening a second subscription (which would double-bill).
+  if (sub?.stripe_customer_id && sub.plan !== "free" && sub.status !== "canceled") {
+    const stripe = getStripe();
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: sub.stripe_customer_id,
+      return_url: `${SITE}/billing`,
+    });
+    redirect(portal.url);
+  }
 
   const stripe = getStripe();
   const session = await stripe.checkout.sessions.create({

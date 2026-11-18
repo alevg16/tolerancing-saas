@@ -6,17 +6,20 @@ import { C, SANS } from "@/lib/design/tokens";
 
 export default async function InvitePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { token } = await params;
+  const { error } = await searchParams;
 
   // The Proxy redirects signed-out users to /login?redirectTo=… ; this is a guard.
   const user = await getUser();
   if (!user) redirect(`/login?redirectTo=/invite/${token}`);
 
   const preview = await previewInvitation(token);
-  const ok = Boolean(preview && preview.valid);
+  const ok = Boolean(preview && preview.valid) && !error;
 
   return (
     <div
@@ -89,7 +92,9 @@ export default async function InvitePage({
               Invitation unavailable
             </h1>
             <p style={{ fontSize: 14, color: C.sub, margin: "0 0 20px" }}>
-              This invite link is invalid, expired, or already used.
+              {error
+                ? "This invitation couldn’t be accepted. It may be addressed to a different email, or it may have expired or already been used."
+                : "This invite link is invalid, expired, or already used."}
             </p>
             <a
               href="/dashboard"

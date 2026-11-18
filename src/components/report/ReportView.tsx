@@ -43,7 +43,29 @@ export default function ReportView({
 
   return (
     <div style={{ background: "#fff", color: C.ink, fontFamily: SANS, minHeight: "100vh" }}>
-      <style>{`@page{margin:15mm} @media print{.no-print{display:none!important} body{background:#fff} .sig{page-break-inside:avoid}}`}</style>
+      <style>{`
+        @page { margin: 15mm }
+        @media print {
+          .no-print { display: none !important }
+          body { background: #fff }
+          .sig { page-break-inside: avoid }
+          /* keep badge / chart / zone colors in the printed PDF */
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact }
+          /* the embedded calculator's action controls are noise on paper */
+          button { display: none !important }
+          /* show input values as clean static text, not form fields */
+          input, select, textarea {
+            -webkit-appearance: none !important; appearance: none !important;
+            border: 1px solid transparent !important;
+            background: transparent !important;
+            box-shadow: none !important; outline: none !important;
+            color: #000 !important;
+          }
+          select { background-image: none !important }
+          /* don't split diagrams, images or tables across pages */
+          svg, img, table { page-break-inside: avoid }
+        }
+      `}</style>
 
       {/* action bar — screen only */}
       <div className="no-print" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 22px", borderBottom: `1px solid ${C.line}`, background: C.panel, position: "sticky", top: 0, zIndex: 5 }}>

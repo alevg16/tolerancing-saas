@@ -41,7 +41,13 @@ export async function acceptInviteAction(formData: FormData) {
   const token = String(formData.get("token") ?? "");
   if (!token) return;
 
-  const orgId = await acceptInvitation(token); // throws if invalid/expired/used
+  let orgId: string;
+  try {
+    // Throws if invalid / expired / already used / addressed to another email.
+    orgId = await acceptInvitation(token);
+  } catch {
+    redirect(`/invite/${token}?error=1`);
+  }
 
   (await cookies()).set("active_org", orgId, {
     path: "/",
